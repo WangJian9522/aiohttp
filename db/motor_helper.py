@@ -31,7 +31,8 @@ class MotorBase():
         self.__dict__.update(**db_configs)
         if self.user:
             self.motor_uri = f"mongodb://{self.user}:{self.passwd}@{self.host}:{self.port}/{self.db_name}?authSource={self.user}"
-        self.motor_uri = f"mongodb://{self.host}:{self.port}/{self.db_name}"
+        else:
+            self.motor_uri = f"mongodb://{self.host}:{self.port}/{self.db_name}"
         self.client = AsyncIOMotorClient(self.motor_uri)
         self.db = self.client.spider_data
 
