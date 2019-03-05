@@ -37,7 +37,7 @@ try:
     asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 except ImportError:
     pass
-
+# Semaphore限制同时请求构造连接的数量，Semphore充足时.
 sema = asyncio.Semaphore(5)
 
 
@@ -125,6 +125,8 @@ async def bound_fetch(item, session):
 
 async def run(data):
     crawler.info("Start Spider")
+    # TCPConnector维持链接池，限制并行连接的总量，当池满了，有请求退出再加入新请求。默认是100，limit=0的时候是无限制
+    # ClientSession调用TCPConnector构造连接，Session可以共用
     async with aiohttp.connector.TCPConnector(limit=300, force_close=True, enable_cleanup_closed=True) as tc:
         async with aiohttp.ClientSession(connector=tc) as session:
             coros = (asyncio.ensure_future(bound_fetch(item, session)) for item in data)
