@@ -31,8 +31,7 @@ class MotorBase():
         self.__dict__.update(**db_configs)
         if self.user:
             self.motor_uri = f"mongodb://{self.user}:{self.passwd}@{self.host}:{self.port}/{self.db_name}?authSource={self.user}"
-        else:
-            self.motor_uri = f"mongodb://{self.host}:{self.port}/{self.db_name}"
+        self.motor_uri = f"mongodb://{self.host}:{self.port}/{self.db_name}"
         self.client = AsyncIOMotorClient(self.motor_uri)
         self.db = self.client.spider_data
 
@@ -71,6 +70,12 @@ class MotorBase():
             print(item)
         return data
 
+    async def find(self):
+        data = self.db.infoq_seed.find({'status': 0})
+
+        async_gen = (item async for item in data)
+        return async_gen
+
     async def use_count_command(self):
         response = await self.db.command(SON([("count", "infoq_seed")]))
         print(f'response:{pprint.pformat(response)}')
@@ -79,4 +84,4 @@ class MotorBase():
 if __name__ == '__main__':
     m = MotorBase()
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(m.reset_all_status())
+    loop.run_until_complete(m.find())

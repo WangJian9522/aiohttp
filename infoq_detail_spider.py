@@ -1,4 +1,4 @@
-# @Time : 2019/02/02 10:02 AM
+# @Time : 2019/03/12 10:02 AM
 # @Author : cxa
 # @Software: PyCharm
 # encoding: utf-8
@@ -6,15 +6,14 @@ import os
 import aiohttp
 import hashlib
 import aiofiles
-from itertools import islice
 import async_timeout
 import asyncio
 from logger.log import crawler, storage
-from db.mongo_helper import Mongo
 from db.motor_helper import MotorBase
 import datetime
 import json
 from w3lib.html import remove_tags
+from aiostream import stream
 
 base_url = "https://www.infoq.cn/public/v1/article/getDetail"
 headers = {
@@ -37,7 +36,7 @@ try:
     asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 except ImportError:
     pass
-# Semaphore限制同时请求构造连接的数量，Semphore充足时.
+
 sema = asyncio.Semaphore(5)
 
 
@@ -123,47 +122,28 @@ async def bound_fetch(item, session):
         await get_buff(item, session)
 
 
-async def run(data):
+async def branch(coros, limit=10):
+    index = 0
+    while True:
+        xs = stream.preserve(coros)
+        ys = xs[index:index + limit]
+        t = await stream.list(ys)
+        if not t:
+            break
+        await asyncio.ensure_future(asyncio.wait(t))
+        index += limit + 1
+
+
+async def run():
+    data = await MotorBase().find()
     crawler.info("Start Spider")
-    # TCPConnector维持链接池，限制并行连接的总量，当池满了，有请求退出再加入新请求。默认是100，limit=0的时候是无限制
-    # ClientSession调用TCPConnector构造连接，Session可以共用
     async with aiohttp.connector.TCPConnector(limit=300, force_close=True, enable_cleanup_closed=True) as tc:
         async with aiohttp.ClientSession(connector=tc) as session:
-            coros = (asyncio.ensure_future(bound_fetch(item, session)) for item in data)
-            await start_branch(coros)
-
-
-async def start_branch(tasks):
-    # 分流
-    [await _ for _ in limited_as_completed(tasks, 10)]
-
-
-async def first_to_finish(futures, coros):
-    while True:
-        await asyncio.sleep(0.01)
-        for f in futures:
-            if f.done():
-                futures.remove(f)
-                try:
-                    new_future = next(coros)
-                    futures.append(asyncio.ensure_future(new_future))
-                except StopIteration as e:
-                    pass
-                return f.result()
-
-
-def limited_as_completed(coros, limit):
-    futures = [asyncio.ensure_future(c) for c in islice(coros, 5, limit)]
-
-    while len(futures) > 0:
-        yield first_to_finish(futures, coros)
+            coros = (asyncio.ensure_future(bound_fetch(item, session)) async for item in data)
+            await branch(coros)
 
 
 if __name__ == '__main__':
     loop = asyncio.get_event_loop()
-    url_gen = Mongo().find_data()
-    try:
-        loop.run_until_complete(run(url_gen))
-    finally:
-        loop.run_until_complete(loop.shutdown_asyncgens())
-        loop.close()
+    loop.run_until_complete(run())
+    loop.close()
