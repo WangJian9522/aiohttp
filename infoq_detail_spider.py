@@ -84,6 +84,13 @@ async def get_content(source, item):
 
 @retry(attempts=5)
 async def fetch(item, session, retry_index=0):
+    '''
+    对内容的下载，重试次数5次
+    :param item:
+    :param session:
+    :param retry_index:
+    :return:
+    '''
     refer = item.get("url")
     uuid = item.get("uuid")
     if retry_index == 0:
@@ -101,6 +108,12 @@ async def fetch(item, session, retry_index=0):
 
 
 async def bound_fetch(item, session):
+    '''
+    分别处理图片和内容的下载
+    :param item:
+    :param session:
+    :return:
+    '''
     md5name = item.get("md5name")
     file_path = os.path.join(os.getcwd(), "infoq_cover")
     image_path = os.path.join(file_path, f"{md5name}.jpg")
@@ -113,6 +126,12 @@ async def bound_fetch(item, session):
 
 
 async def branch(coros, limit=10):
+    '''
+    使用aiostream模块对异步生成器做一个切片操作。这里并发量为10.
+    :param coros: 异步生成器
+    :param limit: 并发次数
+    :return:
+    '''
     index = 0
     while True:
         xs = stream.preserve(coros)
@@ -125,6 +144,10 @@ async def branch(coros, limit=10):
 
 
 async def run():
+    '''
+    入口函数
+    :return:
+    '''
     data = await MotorBase().find()
     crawler.info("Start Spider")
     async with aiohttp.connector.TCPConnector(limit=300, force_close=True, enable_cleanup_closed=True) as tc:

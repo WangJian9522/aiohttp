@@ -30,6 +30,11 @@ class InfoQ_Seed_Spider():
         self.session.headers.update(self.headers)
 
     def get_req(self, data=None):
+        '''
+        请求列表页
+        :param data:
+        :return:
+        '''
         req = self.session.post(self.start_url, data=json.dumps(data))
         if req.status_code in [200, 201]:
             return req
