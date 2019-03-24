@@ -10,6 +10,7 @@ import random
 import datetime
 from logger.log import crawler, storage
 from db.mongo_helper import Mongo
+import hashlib
 
 
 class InfoQ_Seed_Spider():
@@ -41,22 +42,25 @@ class InfoQ_Seed_Spider():
                 uuid = item.get("uuid")
                 dic["uuid"] = uuid
                 dic["url"] = f"https://www.infoq.cn/article/{uuid}"
-                dic["title"] = item.get("article_title")
+                title = item.get("article_title")
+                dic["title"] = title
                 dic["cover"] = item.get("article_cover")
                 dic["summary"] = item.get("article_summary")
-                author=item.get("author")
+                author = item.get("author")
                 if author:
-                   dic["author"] = author[0].get("nickname")
+                    dic["author"] = author[0].get("nickname")
                 else:
-                   dic["author"]=item.get("no_author","").split(":")[-1]
-                score=item.get("publish_time")
-                dic["publish_time"] = datetime.datetime.utcfromtimestamp(score/1000).strftime("%Y-%m-%d %H:%M:%S")
+                    dic["author"] = item.get("no_author", "").split(":")[-1]
+                score = item.get("publish_time")
+                dic["publish_time"] = datetime.datetime.utcfromtimestamp(score / 1000).strftime("%Y-%m-%d %H:%M:%S")
                 dic["tags"] = ",".join([data.get("name") for data in item.get("topic")])
                 translate = item.get("translator")
                 dic["translator"] = dic["author"]
                 if translate:
                     dic["translator"] = translate[0].get("nickname")
                 dic["status"] = 0
+                md5name = hashlib.md5(title.encode("utf-8")).hexdigest()  # 图片的名字
+                dic["md5name"] = md5name
                 dic["update_time"] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 tasks.append(dic)
             except IndexError as e:
@@ -68,7 +72,7 @@ class InfoQ_Seed_Spider():
     def start(self):
         i = 0
         post_data = {"size": 12}
-        while i < 10:
+        while i < 4:
             req = self.get_req(post_data)
             data = req.json().get("data")
             score = self.save_data(data)

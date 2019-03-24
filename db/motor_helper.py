@@ -44,18 +44,12 @@ class MotorBase():
         except Exception as e:
             storage.error(f"数据插入出错:{e.args}此时的item是:{item}")
 
-    async def change_status(self, uuid, item, status_code=0):
+    async def change_status(self, uuid, status_code=0):
         # status_code 0:初始,1:开始下载，2下载完了
-        try:
-            # storage.info(f"修改状态,此时的数据是:{item}")
-            item["status"] = status_code
-            await self.db.infoq_seed.update_one({'uuid': uuid}, {'$set': item}, upsert=True)
-        except Exception as e:
-            if "immutable" in e.args[0]:
-                await self.db.infoq_seed.delete_one({'_id': item["_id"]})
-                storage.info(f"数据重复删除:{e.args},此时的数据是:{item}")
-            else:
-                storage.error(f"修改状态出错:{e.args}此时的数据是:{item}")
+        # storage.info(f"修改状态,此时的数据是:{item}")
+        item = {}
+        item["status"] = status_code
+        await self.db.infoq_seed.update_one({'uuid': uuid}, {'$set': item}, upsert=True)
 
     async def reset_status(self):
         await self.db.infoq_seed.update_many({'status': 1}, {'$set': {"status": 0}})

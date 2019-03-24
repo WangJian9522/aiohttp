@@ -36,7 +36,7 @@ class Mongo():
 
     def find_data(self, col="infoq_seed"):
         # 获取状态为0的数据
-        data = self.db[col].find({"status": 0})
+        data = self.db[col].find({"status": 0}, {"_id": 0})
         gen = (item for item in data)
         return gen
 

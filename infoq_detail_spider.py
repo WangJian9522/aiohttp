@@ -4,7 +4,6 @@
 # encoding: utf-8
 import os
 import aiohttp
-import hashlib
 import aiofiles
 import async_timeout
 import asyncio
@@ -14,6 +13,7 @@ import datetime
 import json
 from w3lib.html import remove_tags
 from aiostream import stream
+from async_retrying import retry
 
 base_url = "https://www.infoq.cn/public/v1/article/getDetail"
 headers = {
@@ -82,38 +82,28 @@ async def get_content(source, item):
     await MotorBase().save_data(dic)
 
 
+@retry(attempts=5)
 async def fetch(item, session, retry_index=0):
-    try:
-        refer = item.get("url")
-        name = item.get("title")
-        uuid = item.get("uuid")
-        md5name = hashlib.md5(name.encode("utf-8")).hexdigest()  # 图片的名字
-        item["md5name"] = md5name
-        data = {"uuid": uuid}
-        headers["Referer"] = refer
-        if retry_index == 0:
-            await MotorBase().change_status(uuid, item, 1)  # 开始下载
-        with async_timeout.timeout(60):
-            async with session.post(url=base_url, headers=headers, data=json.dumps(data)) as req:
-                res_status = req.status
+    refer = item.get("url")
+    uuid = item.get("uuid")
+    if retry_index == 0:
+        await MotorBase().change_status(uuid, 1)  # 开始下载
+    data = {"uuid": uuid}
+    headers["Referer"] = refer
+    with async_timeout.timeout(60):
+        async with session.post(url=base_url, headers=headers, data=json.dumps(data)) as req:
+            res_status = req.status
 
-                if res_status == 200:
-                    jsondata = await req.json()
-                    await get_content(jsondata, item)
-        await MotorBase().change_status(uuid, item, 2)  # 下载成功
-    except Exception as e:
-        jsondata = None
-    if not jsondata:
-        crawler.error(f'Retry times: {retry_index + 1}')
-        retry_index += 1
-        return await fetch(item, session, retry_index)
+            if res_status == 200:
+                jsondata = await req.json()
+                await get_content(jsondata, item)
+    await MotorBase().change_status(uuid, 2)  # 下载成功
 
 
 async def bound_fetch(item, session):
     md5name = item.get("md5name")
     file_path = os.path.join(os.getcwd(), "infoq_cover")
     image_path = os.path.join(file_path, f"{md5name}.jpg")
-
     item["md5name"] = md5name
     item["image_path"] = image_path
     item["file_path"] = file_path
